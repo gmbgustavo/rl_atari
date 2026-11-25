@@ -16,7 +16,7 @@ class Pixels84(gym.ObservationWrapper):
     def observation(self, observation):
         image = Image.fromarray(observation).convert("L")
         image = image.resize((84, 84), Image.Resampling.BILINEAR)
-        return np.asarray(image, dtype=np.uint8)[..., None]
+        return np.array(image, dtype=np.uint8, copy=True)[..., None]
 
 
 def avaliar(env, escolher_acao, nome, partidas=20):
