@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from stable_baselines3 import PPO
+from collections import deque
 
 
 # Joypad Libretro: B=0, START=3, LEFT=6, RIGHT=7.
@@ -233,8 +234,13 @@ def main():
             if (score, lives, game_over) != (0, 3, False):
                 raise RuntimeError(f"Reset inesperado: {(score, lives, game_over)}")
 
-            obs = stella.observation()
+            frames = deque(maxlen=4)
+            first_frame = stella.observation()
+            for _ in range(4):
+                frames.append(first_frame.copy())
+            obs = np.concatenate(tuple(frames), axis=-1).copy()
             total = 0
+
             for steps in range(1, 1801):
                 action, _ = model.predict(obs, deterministic=not args.amostrar)
                 stella.run_frames(4, ACTIONS[int(np.asarray(action).item())])
@@ -245,7 +251,8 @@ def main():
 
                 if game_over or steps == 1800:
                     break
-                obs = stella.observation()
+                frames.append(stella.observation().copy())
+                obs = np.concatenate(tuple(frames), axis=-1).copy()
 
             reason = "game over" if game_over else "limite de passos"
             print(

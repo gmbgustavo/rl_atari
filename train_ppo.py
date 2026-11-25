@@ -4,6 +4,7 @@ import gymnasium as gym
 import numpy as np
 from PIL import Image
 from stable_baselines3 import PPO
+from collections import deque
 
 
 class Pixels84(gym.ObservationWrapper):
@@ -41,7 +42,10 @@ def avaliar(env, escolher_acao, nome, partidas=20):
 
 
 def treinar(env):
-    env = gym.wrappers.TimeLimit(Pixels84(env), max_episode_steps=1800)
+    env = gym.wrappers.TimeLimit(
+        FrameStack(Pixels84(env), stack_size=4),
+        max_episode_steps=1800,
+    )
     rng = np.random.default_rng(42)
     avaliar(env, lambda obs: int(rng.integers(env.action_space.n)), "Aleatório")
 
@@ -50,10 +54,40 @@ def treinar(env):
         n_steps=1024, batch_size=64, seed=42, verbose=1,
     )
     model.learn(total_timesteps=32_768)
-    model.save("ppo_space_invaders")
+    model.save("ppo_sinvaders_4frames")
 
     avaliar(
         env,
         lambda obs: int(model.predict(obs, deterministic=False)[0].item()),
         "PPO",
     )
+
+class FrameStack(gym.Wrapper):
+    def __init__(self, env, stack_size=4):
+        super().__init__(env)
+        self.stack_size = stack_size
+        self.frames = deque(maxlen=stack_size)
+
+        height, width, channels = env.observation_space.shape
+        self.observation_space = gym.spaces.Box(
+            low=0,
+            high=255,
+            shape=(height, width, channels * stack_size),
+            dtype=np.uint8,
+        )
+
+    def _stack(self):
+        return np.concatenate(tuple(self.frames), axis=-1).copy()
+
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        self.frames.clear()
+        # Preenche o histórico inicial repetindo a primeira imagem.
+        for _ in range(self.stack_size):
+            self.frames.append(obs.copy())
+        return self._stack(), info
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        self.frames.append(obs.copy())
+        return self._stack(), reward, terminated, truncated, info
