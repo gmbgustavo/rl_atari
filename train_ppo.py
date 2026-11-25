@@ -46,8 +46,6 @@ def treinar(env):
         FrameStack(Pixels84(env), stack_size=4),
         max_episode_steps=1800,
     )
-    rng = np.random.default_rng(42)
-    avaliar(env, lambda obs: int(rng.integers(env.action_space.n)), "Aleatório")
 
     model = PPO(
         "CnnPolicy", env, device="cuda",
