@@ -1,0 +1,5 @@
+.venv
+roms
+.env
+.idea
+ppo_space_invaders.zip
