@@ -5,6 +5,23 @@ import numpy as np
 from PIL import Image
 from stable_baselines3 import PPO
 from collections import deque
+from pathlib import Path
+from stable_baselines3.common.callbacks import BaseCallback
+
+CHECKPOINT = Path("checkpoints/ppo_sinvaders_4frames_latest.zip")
+
+
+class SaveCheckpointCallback(BaseCallback):
+    def __init__(self, path, save_freq=10_000):
+        super().__init__()
+        self.path = path
+        self.save_freq = save_freq
+
+    def _on_step(self):
+        if self.n_calls % self.save_freq == 0:
+            self.model.save(str(self.path))
+            print(f"Checkpoint salvo em {self.num_timesteps} etapas.")
+        return True
 
 
 class Pixels84(gym.ObservationWrapper):
@@ -47,12 +64,33 @@ def treinar(env):
         max_episode_steps=1800,
     )
 
-    model = PPO(
-        "CnnPolicy", env, device="cuda",
-        n_steps=1024, batch_size=64, seed=42, verbose=1,
-    )
-    model.learn(total_timesteps=32_000)
-    model.save("ppo_sinvaders_4frames")
+    CHECKPOINT.parent.mkdir(parents=True, exist_ok=True)
+    retomando = CHECKPOINT.exists()
+
+    if retomando:
+        print(f"Continuando de {CHECKPOINT}")
+        model = PPO.load(CHECKPOINT, env=env, device="cuda")
+    else:
+        model = PPO(
+            "CnnPolicy", env, device="cuda",
+            n_steps=1024, batch_size=64, seed=42, verbose=1,
+        )
+
+    callback = SaveCheckpointCallback(CHECKPOINT)
+
+    try:
+        model.learn(
+            total_timesteps=32_768,
+            callback=callback,
+            reset_num_timesteps=not retomando,
+        )
+    except KeyboardInterrupt:
+        model.save(str(CHECKPOINT))
+        print(f"\nTreino interrompido. Checkpoint salvo em {CHECKPOINT}")
+        return
+
+    model.save(str(CHECKPOINT))
+    print(f"Treino concluído. Checkpoint salvo em {CHECKPOINT}")
 
     avaliar(
         env,
