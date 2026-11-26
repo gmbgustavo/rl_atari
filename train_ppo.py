@@ -51,7 +51,7 @@ def treinar(env):
         "CnnPolicy", env, device="cuda",
         n_steps=1024, batch_size=64, seed=42, verbose=1,
     )
-    model.learn(total_timesteps=32_768)
+    model.learn(total_timesteps=32_000)
     model.save("ppo_sinvaders_4frames")
 
     avaliar(
