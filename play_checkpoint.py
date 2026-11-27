@@ -1,6 +1,7 @@
 import argparse
 import ctypes as C
 import os
+import pygame
 from pathlib import Path
 
 import numpy as np
@@ -46,12 +47,17 @@ class SystemInfo(C.Structure):
 
 
 class Stella:
-    def __init__(self, core_path):
+    def __init__(self, core_path, render=False):
         self.core = C.CDLL(str(core_path.resolve()))
         self.buttons = 0
         self.pixel_format = 0  # Formato padrão do Libretro: 0RGB1555.
         self.frame = None
         self.loaded = False
+        if render:
+            pygame.init()
+            self.screen = pygame.display.set_mode((504, 504))
+            pygame.display.set_caption("Space Invaders — agente PPO")
+            self.clock = pygame.time.Clock()
 
         signatures = {
             "retro_set_environment": ([Environment], None),
@@ -148,6 +154,8 @@ class Stella:
         self.buttons = buttons
         for _ in range(count):
             self.core.retro_run()
+            if self.render:
+                self.render()
 
     def reset(self):
         self.frame = None
@@ -169,6 +177,21 @@ class Stella:
         lives = ram[0x49]
         game_over = bool(ram[0x18] & 0x80) or lives == 0
         return score, lives, game_over
+
+    def render(self):
+        gray = self.observation()[..., 0]
+        rgb = np.repeat(gray[..., None], 3, axis=2)
+        surface = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
+        self.screen.blit(
+            pygame.transform.scale(surface, self.screen.get_size()), (0, 0)
+        )
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                raise KeyboardInterrupt("Janela fechada")
+
+        self.clock.tick(60)
 
     def observation(self):
         if self.frame is None:
@@ -214,6 +237,11 @@ def main():
         "--amostrar", action="store_true",
         help="Amostra ações como na avaliação do treino, em vez de usar a mais provável."
     )
+    parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Abre uma janela para acompanhar o jogo",
+    )
     args = parser.parse_args()
 
     if args.partidas < 1:
@@ -243,7 +271,7 @@ def main():
 
             for steps in range(1, 1801):
                 action, _ = model.predict(obs, deterministic=not args.amostrar)
-                stella.run_frames(4, ACTIONS[int(np.asarray(action).item())])
+                stella.run_frames(40, ACTIONS[int(np.asarray(action).item())])
 
                 new_score, lives, game_over = stella.stats()
                 total += (new_score - score) % 10_000
