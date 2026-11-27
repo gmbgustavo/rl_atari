@@ -3,3 +3,5 @@ roms
 .env
 .idea/
 ppo_space_invaders.zip
+__pycache__/
+checkpoints/ppo_sinvaders_v2/
