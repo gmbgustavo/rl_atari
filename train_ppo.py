@@ -80,7 +80,7 @@ def treinar(env):
 
     try:
         model.learn(
-            total_timesteps=70000,
+            total_timesteps=1_000_000,
             callback=callback,
             reset_num_timesteps=not retomando,
         )
