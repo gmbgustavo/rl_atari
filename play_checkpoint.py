@@ -50,14 +50,18 @@ class Stella:
     def __init__(self, core_path, render=False):
         self.core = C.CDLL(str(core_path.resolve()))
         self.buttons = 0
+        self.rom_buffer = None
         self.pixel_format = 0  # Formato padrão do Libretro: 0RGB1555.
         self.frame = None
         self.loaded = False
+        self.render_enabled = render
         if render:
             pygame.init()
             self.screen = pygame.display.set_mode((504, 504))
             pygame.display.set_caption("Space Invaders — agente PPO")
             self.clock = pygame.time.Clock()
+
+        self.core = C.CDLL(str(core_path.resolve()))
 
         signatures = {
             "retro_set_environment": ([Environment], None),
@@ -101,7 +105,11 @@ class Stella:
             if self.loaded:
                 self.core.retro_unload_game()
         finally:
-            self.core.retro_deinit()
+            try:
+                self.core.retro_deinit()
+            finally:
+                if self.render_enabled:
+                    pygame.quit()
 
     def environment(self, cmd, data):
         if cmd == 10 and data:  # RETRO_ENVIRONMENT_SET_PIXEL_FORMAT
@@ -154,7 +162,7 @@ class Stella:
         self.buttons = buttons
         for _ in range(count):
             self.core.retro_run()
-            if self.render:
+            if self.render_enabled:
                 self.render()
 
     def reset(self):
@@ -177,21 +185,6 @@ class Stella:
         lives = ram[0x49]
         game_over = bool(ram[0x18] & 0x80) or lives == 0
         return score, lives, game_over
-
-    def render(self):
-        gray = self.observation()[..., 0]
-        rgb = np.repeat(gray[..., None], 3, axis=2)
-        surface = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
-        self.screen.blit(
-            pygame.transform.scale(surface, self.screen.get_size()), (0, 0)
-        )
-        pygame.display.flip()
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                raise KeyboardInterrupt("Janela fechada")
-
-        self.clock.tick(60)
 
     def observation(self):
         if self.frame is None:
@@ -220,6 +213,20 @@ class Stella:
         image = Image.fromarray(rgb).convert("L")
         image = image.resize((84, 84), Image.Resampling.BILINEAR)
         return np.array(image, dtype=np.uint8, copy=True)[..., None]
+
+    def render(self):
+        gray = self.observation()[:, :, 0]
+        rgb = np.repeat(gray[:, :, None], 3, axis=2)
+        surface = pygame.surfarray.make_surface(rgb.swapaxes(0, 1))
+        surface = pygame.transform.scale(surface, self.screen.get_size())
+        self.screen.blit(surface, (0, 0))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                raise KeyboardInterrupt
+
+        self.clock.tick(60)
 
 
 def main():
@@ -253,7 +260,7 @@ def main():
     model = PPO.load(str(args.checkpoint), device=args.device)
     print(f"Checkpoint: {args.checkpoint} | device: {model.device}")
 
-    with Stella(args.core) as stella:
+    with Stella(args.core, render=args.render) as stella:
         stella.load_rom(args.rom)
 
         for episode in range(1, args.partidas + 1):

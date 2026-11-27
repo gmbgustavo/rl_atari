@@ -80,7 +80,7 @@ def treinar(env):
 
     try:
         model.learn(
-            total_timesteps=100_000,
+            total_timesteps=100_000,    # Quantidade de timesteps no total
             callback=callback,
             reset_num_timesteps=not retomando,
         )
@@ -94,7 +94,7 @@ def treinar(env):
 
     avaliar(
         env,
-        lambda obs: int(model.predict(obs, deterministic=True)[0].item()),
+        lambda obs: int(model.predict(obs, deterministic=False)[0].item()),
         "PPO",
     )
 
