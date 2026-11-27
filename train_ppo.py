@@ -257,6 +257,10 @@ def salvar_frame(env, nome):
     Image.fromarray(env.unwrapped.stella.rgb()).save(nome)
     print(f"Frame salvo em {nome}.")
 
+#.venv/bin/python play_checkpoint.py cores/stella2014_libretro.so roms/spaceinvaders.a26
+#Para continuar a partir dos 8.192 passos já treinados:
+#.venv/bin/python train_ppo.py cores/stella2014_libretro.so roms/spaceinvaders.a26 --passos 100000
 
 if __name__ == "__main__":
     main()
+
