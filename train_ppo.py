@@ -215,7 +215,7 @@ def main(*, capturar=False):
     parser.add_argument("--avaliar-a-cada", type=int, default=10_000, help="Passos entre avaliações")
     parser.add_argument("--ambientes", type=int, default=4, help="Emuladores de treino em paralelo")
     parser.add_argument("--threads", type=int, default=2, help="Threads de CPU para o PyTorch")
-    parser.add_argument("--semente", type=int, default=42, help="Semente de um treino novo")
+    parser.add_argument("--semente", type=int, default=22, help="Semente de um treino novo")
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--saida", type=Path, default=SAIDA_PADRAO, help="Diretório da execução; retoma latest.zip se existir")
     parser.add_argument("--iniciar-de", type=Path, help="Inicializa um treino novo com os pesos de um checkpoint")
